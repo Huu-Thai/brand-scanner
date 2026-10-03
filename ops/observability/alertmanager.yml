@@ -1,0 +1,10 @@
+# Minimal Alertmanager: groups and de-duplicates alerts. Replace the `default` receiver with your
+# Slack / PagerDuty / e-mail integration (see docs/RUNBOOK.md#alert-routing).
+route:
+  receiver: default
+  group_by: [alertname, queue]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+receivers:
+  - name: default

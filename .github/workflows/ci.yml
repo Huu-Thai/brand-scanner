@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Placeholder for `prisma generate` during install (no database is contacted).
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+jobs:
+  quality:
+    name: Lint · typecheck · unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run test:cov
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/lcov.info
+
+  e2e:
+    name: e2e · migration verification (Testcontainers)
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Docker is available on ubuntu runners; Testcontainers starts Postgres, Redis (password) and MinIO.
+      - run: npm run test:e2e
+
+  image:
+    name: Build & scan image
+    runs-on: ubuntu-latest
+    needs: [quality, e2e]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build api / worker / migrate targets
+        run: |
+          docker build --target api -t fuzzer-scanner-api:${{ github.sha }} .
+          docker build --target worker -t fuzzer-scanner-worker:${{ github.sha }} .
+          docker build --target migrate -t fuzzer-scanner-migrate:${{ github.sha }} .
+      - name: Trivy scan (fail on HIGH/CRITICAL with a fix available)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: fuzzer-scanner-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'

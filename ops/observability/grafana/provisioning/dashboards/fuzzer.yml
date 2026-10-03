@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: fuzzer-scanner
+    folder: Fuzzer Scanner
+    type: file
+    disableDeletion: true
+    options: { path: /var/lib/grafana/dashboards }

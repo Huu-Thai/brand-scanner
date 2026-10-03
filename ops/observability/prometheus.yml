@@ -1,0 +1,25 @@
+# Prometheus for fuzzer-scanner (docker compose --profile observability).
+# Targets live in targets/*.json (file service discovery) so they can be edited without a restart:
+# compose service names by default; use host.docker.internal:<port> when the app runs on the host.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: fuzzer-api
+    metrics_path: /api/v1/metrics
+    # authorization: { credentials_file: /etc/prometheus/metrics-token }   # when METRICS_TOKEN is set
+    file_sd_configs:
+      - files: ['/etc/prometheus/targets/api.json']
+  - job_name: fuzzer-worker
+    metrics_path: /metrics
+    file_sd_configs:
+      - files: ['/etc/prometheus/targets/worker.json']

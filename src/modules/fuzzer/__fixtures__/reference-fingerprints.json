@@ -1,0 +1,117 @@
+{
+  "_source": "Reporting src/modules/wsd-scanner-worker/utils/dnstwist-fuzzer.util.ts (unmodified) + same dictionaries + wordsninja@1.1.0, recorded 2026-10-02",
+  "google.com": {
+    "total": 10022,
+    "byFuzzer": {
+      "*original": 1,
+      "addition": 192,
+      "bitsquatting": 27,
+      "cyrillic": 1,
+      "dictionary": 504,
+      "fuzzerwithtld": 4214,
+      "homoglyph": 2784,
+      "hyphenation": 6,
+      "insertion": 184,
+      "omission": 5,
+      "replacement": 176,
+      "subdomain": 4,
+      "tld-swap": 1760,
+      "transposition": 4,
+      "wordaddition": 160
+    },
+    "sha256Ordered": "e1c4c1477f0def84199b41f4c5d1735c63ed116c214b71826f6a3626ae0ca3c7"
+  },
+  "example.co.uk": {
+    "total": 7877,
+    "byFuzzer": {
+      "*original": 1,
+      "addition": 192,
+      "bitsquatting": 33,
+      "cyrillic": 1,
+      "dictionary": 504,
+      "fuzzerwithtld": 4746,
+      "homoglyph": 31,
+      "hyphenation": 7,
+      "insertion": 215,
+      "omission": 7,
+      "replacement": 207,
+      "subdomain": 5,
+      "tld-swap": 1761,
+      "transposition": 6,
+      "various": 1,
+      "wordaddition": 160
+    },
+    "sha256Ordered": "7ba705a0e3c068df0364bb3082d3b363e94989bff599e7ba7161c9321a68261b"
+  },
+  "bank-secure.de": {
+    "total": 12064,
+    "byFuzzer": {
+      "*original": 1,
+      "addition": 192,
+      "bitsquatting": 48,
+      "dictionary": 753,
+      "englishsplit": 2,
+      "fuzzerwithtld": 6538,
+      "homoglyph": 1916,
+      "hyphenation": 8,
+      "insertion": 357,
+      "omission": 11,
+      "plural": 1,
+      "repetition": 1,
+      "replacement": 296,
+      "subdomain": 8,
+      "tld-swap": 1760,
+      "transposition": 9,
+      "various": 2,
+      "wordaddition": 160,
+      "wordswap": 1
+    },
+    "sha256Ordered": "a51cd1027ab82a317b9fd953f260148d19f8a9c59acae76f09f72182aac1bf15"
+  },
+  "login.paypal.com": {
+    "total": 8455,
+    "byFuzzer": {
+      "*original": 1,
+      "addition": 192,
+      "bitsquatting": 26,
+      "cyrillic": 1,
+      "dictionary": 504,
+      "fuzzerwithtld": 4235,
+      "homoglyph": 1187,
+      "hyphenation": 6,
+      "insertion": 184,
+      "omission": 6,
+      "replacement": 182,
+      "subdomain": 4,
+      "tld-swap": 1760,
+      "transposition": 5,
+      "various": 2,
+      "wordaddition": 160
+    },
+    "sha256Ordered": "a9ec481113d8e9065164550f8cad958a8b9f2265977813b57470ccf5fd00b021"
+  },
+  "münchen.info": {
+    "total": 7120,
+    "byFuzzer": {
+      "*original": 1,
+      "addition": 192,
+      "bitsquatting": 27,
+      "dictionary": 504,
+      "englishsplit": 2,
+      "fuzzerwithtld": 3864,
+      "homoglyph": 193,
+      "hyphenation": 7,
+      "insertion": 213,
+      "omission": 7,
+      "repetition": 1,
+      "replacement": 175,
+      "subdomain": 5,
+      "tld-swap": 1760,
+      "transposition": 6,
+      "various": 2,
+      "wordaddition": 160,
+      "wordswap": 1
+    },
+    "sha256Ordered": "332ef0f32fd0719a31525428300f703ce0e065945df2248d72c5a180b8b0c3ae"
+  }
+}

@@ -1,0 +1,134 @@
+# Alert rules for fuzzer-scanner (PLAN.md §12, §16 sizing SLOs). See docs/RUNBOOK.md for each alert.
+# Scrape-time gauges are exported by every process, so they are aggregated with max().
+groups:
+  - name: fuzzer-availability
+    rules:
+      - alert: FuzzerTargetDown
+        expr: up{job=~"fuzzer-.*"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: '{{ $labels.job }} {{ $labels.instance }} is not answering /metrics'
+          runbook: docs/RUNBOOK.md#fuzzertargetdown
+
+      - alert: FuzzerApiErrorRate
+        expr: |
+          sum(rate(fuzzer_http_request_duration_seconds_count{status=~"5.."}[5m]))
+            / sum(rate(fuzzer_http_request_duration_seconds_count[5m])) > 0.05
+          and sum(rate(fuzzer_http_request_duration_seconds_count[5m])) > 0.1
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'API 5xx ratio {{ $value | humanizePercentage }}'
+          runbook: docs/RUNBOOK.md#fuzzerapierrorrate
+
+      - alert: FuzzerApiLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(fuzzer_http_request_duration_seconds_bucket{route!~".*/export|unmatched"}[5m]))) > 0.5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'API p95 latency {{ $value | humanizeDuration }} (SLO 500 ms)'
+          runbook: docs/RUNBOOK.md#fuzzerapilatencyhigh
+
+  - name: fuzzer-pipeline
+    rules:
+      # SLO: a full scan finishes within 2 h → DNS batches must not wait that long.
+      - alert: FuzzerDnsQueueLag
+        expr: max by (queue) (fuzzer_queue_oldest_waiting_seconds{queue="dns-resolve"}) > 5400
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Oldest DNS batch has waited {{ $value | humanizeDuration }} (scan SLO 2 h)'
+          runbook: docs/RUNBOOK.md#fuzzerdnsqueuelag
+
+      # SLO: WHOIS for every look-alike within 6 h.
+      - alert: FuzzerWhoisQueueLag
+        expr: max by (queue) (fuzzer_queue_oldest_waiting_seconds{queue="whois"}) > 18000
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Oldest WHOIS job has waited {{ $value | humanizeDuration }} (SLO 6 h)'
+          runbook: docs/RUNBOOK.md#fuzzerwhoisqueuelag
+
+      - alert: FuzzerQueueLag
+        expr: |
+          max by (queue) (fuzzer_queue_oldest_waiting_seconds{queue!~"dns-resolve|whois|screenshot"}) > 900
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Queue {{ $labels.queue }}: oldest job waiting {{ $value | humanizeDuration }}'
+          runbook: docs/RUNBOOK.md#fuzzerqueuelag
+
+      - alert: FuzzerJobFailureRate
+        expr: |
+          sum by (queue) (rate(fuzzer_jobs_total{status="failed"}[15m]))
+            / sum by (queue) (rate(fuzzer_jobs_total[15m])) > 0.10
+          and sum by (queue) (rate(fuzzer_jobs_total[15m])) > 0.01
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Queue {{ $labels.queue }}: {{ $value | humanizePercentage }} of job attempts fail'
+          runbook: docs/RUNBOOK.md#fuzzerjobfailurerate
+
+      - alert: FuzzerFailedJobsAccumulating
+        expr: max by (queue) (fuzzer_queue_jobs{state="failed"}) > 500
+        for: 30m
+        labels: { severity: info }
+        annotations:
+          summary: 'Queue {{ $labels.queue }} holds {{ $value }} failed jobs'
+          runbook: docs/RUNBOOK.md#fuzzerfailedjobsaccumulating
+
+  - name: fuzzer-integrity
+    rules:
+      - alert: FuzzerOutboxBacklog
+        expr: max(fuzzer_outbox_oldest_pending_seconds) > 300
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Undelivered domain events for {{ $value | humanizeDuration }}'
+          runbook: docs/RUNBOOK.md#fuzzeroutboxbacklog
+
+      - alert: FuzzerOutboxDeadLetters
+        expr: max(fuzzer_outbox_dead_letters) > 0
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $value }} domain event(s) parked after the last delivery attempt'
+          runbook: docs/RUNBOOK.md#fuzzeroutboxdeadletters
+
+      - alert: FuzzerRetentionStale
+        expr: |
+          (time() - max(fuzzer_retention_last_success_timestamp_seconds)) > 2 * 86400
+          or absent(fuzzer_retention_last_success_timestamp_seconds)
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: 'No successful retention run in the last 2 days'
+          runbook: docs/RUNBOOK.md#fuzzerretentionstale
+
+      - alert: FuzzerThreatFeedPushErrors
+        expr: increase(fuzzer_threat_feed_push_total{outcome="error"}[30m]) > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Confirmed threats are failing to reach manage-feed'
+          runbook: docs/RUNBOOK.md#fuzzerthreatfeedpusherrors
+
+      - alert: FuzzerAlertDeliveryFailures
+        expr: increase(fuzzer_alerts_total{result="failed"}[30m]) > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Alert notifications are failing ({{ $labels.channel_type }})'
+          runbook: docs/RUNBOOK.md#fuzzeralertdeliveryfailures
+
+      - alert: FuzzerCtStreamDown
+        # Only meaningful when CT_MONITOR_ENABLED=true (the gauge exists in worker processes only).
+        expr: max(fuzzer_ct_stream_connected) == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'No process is connected to the Certificate Transparency stream'
+          runbook: docs/RUNBOOK.md#fuzzerctstreamdown

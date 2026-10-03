@@ -1,0 +1,164 @@
+# Local stack for fuzzer-scanner.
+#   docker compose up -d                 → infrastructure only (run the app with npm run start:dev)
+#   docker compose --profile app up -d   → also migrate + api + worker containers
+#   docker compose --profile observability up -d → Prometheus (:9090), Alertmanager (:9093), Grafana (:3001)
+# Host ports are overridable (FS_*_PORT) to avoid clashes with other local stacks.
+
+name: fuzzer-scanner
+
+x-app-env: &app-env
+  NODE_ENV: ${NODE_ENV:-development}
+  LOG_FORMAT: json
+  DATABASE_URL: postgresql://fuzzer:${POSTGRES_PASSWORD:-fuzzer}@postgres:5432/fuzzer_scanner?schema=public
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+  API_KEYS: ${API_KEYS:?API_KEYS is required}
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: ${S3_BUCKET:-fuzzer-screenshots}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-fuzzer}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+  S3_FORCE_PATH_STYLE: 'true'
+  SELENIUM_URL: http://selenium:4444
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fuzzer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fuzzer}
+      POSTGRES_DB: fuzzer_scanner
+    ports: ['${FS_POSTGRES_PORT:-5432}:5432']
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U fuzzer -d fuzzer_scanner']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Authentication is mandatory; the container refuses to start without a password.
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes']
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    ports: ['${FS_REDIS_PORT:-6379}:6379']
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-fuzzer}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+    ports: ['${FS_MINIO_PORT:-9000}:9000', '${FS_MINIO_CONSOLE_PORT:-9001}:9001']
+    volumes: [minio_data:/data]
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-off: creates the private screenshots bucket.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-fuzzer}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-fuzzer-screenshots}
+    entrypoint: ['/bin/sh', '/init/minio-init.sh']
+    volumes: ['./docker/minio-init.sh:/init/minio-init.sh:ro']
+    restart: 'no'
+
+  selenium:
+    image: selenium/standalone-chrome:latest
+    restart: unless-stopped
+    shm_size: 2gb
+    environment:
+      SE_NODE_MAX_SESSIONS: 4
+      SE_NODE_OVERRIDE_MAX_SESSIONS: 'true'
+      SE_SESSION_REQUEST_TIMEOUT: 60
+    ports: ['${FS_SELENIUM_PORT:-4444}:4444']
+
+  migrate:
+    profiles: [app]
+    build: { context: ., target: migrate }
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+
+  api:
+    profiles: [app]
+    build: { context: ., target: api }
+    environment: *app-env
+    ports: ['${FS_API_PORT:-3000}:3000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    restart: unless-stopped
+
+  worker:
+    profiles: [app]
+    build: { context: ., target: worker }
+    environment: *app-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:latest
+    command: ['--config.file=/etc/prometheus/prometheus.yml', '--storage.tsdb.retention.time=31d', '--web.enable-lifecycle']
+    volumes:
+      - ./ops/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./ops/observability/targets:/etc/prometheus/targets:ro
+      - prometheus_data:/prometheus
+    ports: ['127.0.0.1:${FS_PROMETHEUS_PORT:-9090}:9090']
+    extra_hosts: ['host.docker.internal:host-gateway']
+    restart: unless-stopped
+
+  alertmanager:
+    profiles: [observability]
+    image: prom/alertmanager:latest
+    volumes:
+      - ./ops/observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports: ['127.0.0.1:${FS_ALERTMANAGER_PORT:-9093}:9093']
+    restart: unless-stopped
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:latest
+    environment:
+      # Empty → Grafana's first-login flow forces a new admin password.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - ./ops/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports: ['127.0.0.1:${FS_GRAFANA_PORT:-3001}:3000']
+    depends_on: [prometheus]
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  postgres_data:
+  redis_data:
+  minio_data:

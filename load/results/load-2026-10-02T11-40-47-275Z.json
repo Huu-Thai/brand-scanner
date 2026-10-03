@@ -1,0 +1,133 @@
+{
+  "startedAt": "2026-10-02T11:40:47.275Z",
+  "api": "http://127.0.0.1:3200/api/v1",
+  "brands": [
+    "contoso-secure-banking.com",
+    "northwind-online-store.com",
+    "fabrikam-cloud-payments.com",
+    "adventureworks-cycles.com",
+    "tailspin-airlines-mail.com",
+    "wingtiptoys-checkout.com",
+    "woodgrove-bank-online.com",
+    "litware-health-portal.com",
+    "proseware-identity-hub.com",
+    "alpineskihouse-rentals.com"
+  ],
+  "scans": [
+    {
+      "brand": "contoso-secure-banking.com",
+      "status": "COMPLETED",
+      "permutations": 43856,
+      "registered": 608,
+      "failedLookups": 0,
+      "durationS": 13
+    },
+    {
+      "brand": "northwind-online-store.com",
+      "status": "COMPLETED",
+      "permutations": 45662,
+      "registered": 696,
+      "failedLookups": 0,
+      "durationS": 8
+    },
+    {
+      "brand": "fabrikam-cloud-payments.com",
+      "status": "COMPLETED",
+      "permutations": 41231,
+      "registered": 623,
+      "failedLookups": 0,
+      "durationS": 17
+    },
+    {
+      "brand": "adventureworks-cycles.com",
+      "status": "COMPLETED",
+      "permutations": 39931,
+      "registered": 581,
+      "failedLookups": 0,
+      "durationS": 21
+    },
+    {
+      "brand": "tailspin-airlines-mail.com",
+      "status": "COMPLETED",
+      "permutations": 44193,
+      "registered": 719,
+      "failedLookups": 0,
+      "durationS": 25
+    },
+    {
+      "brand": "wingtiptoys-checkout.com",
+      "status": "COMPLETED",
+      "permutations": 36495,
+      "registered": 543,
+      "failedLookups": 0,
+      "durationS": 29
+    },
+    {
+      "brand": "woodgrove-bank-online.com",
+      "status": "COMPLETED",
+      "permutations": 44375,
+      "registered": 661,
+      "failedLookups": 0,
+      "durationS": 33
+    },
+    {
+      "brand": "litware-health-portal.com",
+      "status": "COMPLETED",
+      "permutations": 36648,
+      "registered": 569,
+      "failedLookups": 0,
+      "durationS": 37
+    },
+    {
+      "brand": "proseware-identity-hub.com",
+      "status": "COMPLETED",
+      "permutations": 44405,
+      "registered": 689,
+      "failedLookups": 0,
+      "durationS": 42
+    },
+    {
+      "brand": "alpineskihouse-rentals.com",
+      "status": "COMPLETED",
+      "permutations": 46121,
+      "registered": 672,
+      "failedLookups": 0,
+      "durationS": 46
+    }
+  ],
+  "whoisProcessed": 6361,
+  "totals": {
+    "permutations": 422917,
+    "registered": 6361
+  },
+  "discoveryS": 60,
+  "slowestScanS": 46,
+  "enrichmentS": 8895,
+  "apiLatencyMs": {
+    "list": {
+      "n": 19529,
+      "p50": 9,
+      "p95": 25,
+      "p99": 63
+    },
+    "summary": {
+      "n": 19529,
+      "p50": 4,
+      "p95": 12,
+      "p99": 29
+    },
+    "scans": {
+      "n": 19529,
+      "p50": 2,
+      "p95": 8,
+      "p99": 14
+    }
+  },
+  "apiErrors": 20,
+  "slo": {
+    "scanUnder2h": true,
+    "enrichmentUnder6h": true,
+    "apiP95Under500ms": true
+  },
+  "pass": true
+}

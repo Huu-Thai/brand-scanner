@@ -1,0 +1,1 @@
+[{ "targets": ["api:3000"], "labels": { "role": "api" } }]
